@@ -230,3 +230,53 @@ if uploaded_zip_file and st.session_state.df is None:
         st.dataframe(st.session_state.df.head())
     else:
         st.error(load_result["message"])
+
+# --- Lógica do Chatbot ---
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        if isinstance(message["content"], str):
+            st.markdown(message["content"])
+        elif isinstance(message["content"], io.BytesIO):
+            st.image(message["content"], use_column_width=True)
+        elif isinstance(message["content"], pd.DataFrame):
+            st.dataframe(message["content"])
+        elif isinstance(message["content"], dict):
+            st.dataframe(pd.DataFrame.from_dict(message["content"]))
+
+if prompt_input := st.chat_input("Insira sua pergunta sobre os dados..."):
+    if st.session_state.df is None:
+        st.warning("Por favor, faça o upload de um arquivo ZIP válido para começar.")
+        st.stop()
+    st.session_state.messages.append({"role": "user", "content": prompt_input})
+    with st.chat_message("user"):
+        st.markdown(prompt_input)
+    with st.chat_message("assistant"):
+        st_callback = st.empty()
+        try:
+            full_response = st.session_state.agent_executor.invoke({"input": prompt_input, "df": st.session_state.df})
+            response_content = full_response['output']
+            
+            # Novo tratamento de resposta para evitar erros de renderização
+            if isinstance(response_content, dict) and "status" in response_content:
+                if response_content["status"] == "success":
+                    if "message" in response_content:
+                        st_callback.markdown(response_content["message"])
+                        st.session_state.messages.append({"role": "assistant", "content": response_content["message"]})
+                    if "data" in response_content:
+                        # Convertendo a resposta de markdown para string para garantir a renderização
+                        df_display = pd.read_markdown(response_content["data"])
+                        st_callback.dataframe(df_display)
+                        st.session_state.messages.append({"role": "assistant", "content": df_display})
+                    if "image" in response_content:
+                        st_callback.image(response_content["image"], use_column_width=True)
+                        st.session_state.messages.append({"role": "assistant", "content": response_content["image"]})
+                else:
+                    st_callback.error(response_content["message"])
+                    st.session_state.messages.append({"role": "assistant", "content": response_content["message"]})
+            else:
+                st_callback.markdown(str(response_content))
+                st.session_state.messages.append({"role": "assistant", "content": str(response_content)})
+        except Exception as e:
+            error_message = f"Desculpe, ocorreu um erro na análise: {e}"
+            st_callback.error(error_message)
+            st.session_state.messages.append({"role": "assistant", "content": error_message})
