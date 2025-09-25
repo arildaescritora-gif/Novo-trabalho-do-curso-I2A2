@@ -1,8 +1,9 @@
-streamlit
-langchain-google-genai
-langchain
-pandas
-numpy
-matplotlib
-seaborn
-scikit-learn
+streamlit==1.36.0
+langchain-google-genai==0.0.12
+langchain==0.2.7
+pandas==2.2.2
+numpy==1.26.4
+matplotlib==3.8.4
+seaborn==0.13.2
+scikit-learn==1.5.1
+
